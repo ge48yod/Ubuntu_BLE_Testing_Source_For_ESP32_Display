@@ -1,14 +1,18 @@
 {
   "93A7C412": {
-    "objectID": "A12",
-    "objectName": "Precision Bearings",
-    "status": "Available",
-    "location": "Shelf 3"
+    "objectName": "Precision Bearings BT",
+    "location": "Shelf 3BT"
   },
   "11BB22CC": {
-    "objectID": "B07",
-    "objectName": "Hydraulic Seals",
-    "status": "Reserved",
-    "location": "Shelf 7"
+    "objectName": "Hydraulic Seals BT",
+    "location": "Shelf 7BT"
+  },
+  "Extra": {
+    "objectID1": "A12",
+    "status1": "Available",
+    "objectID2": "B07",
+    "status2": "Reserved"
   }
 }
+
+

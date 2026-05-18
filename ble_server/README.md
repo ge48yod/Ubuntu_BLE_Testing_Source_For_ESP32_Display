@@ -1,6 +1,6 @@
-# BLE Mock Warehouse Server (Ubuntu)
+# BLE Warehouse Server (Ubuntu)
 
-This project provides a Python BLE mock backend for an ESP32 BLE client. It accepts RFID IDs and returns object information JSON from a local mock database.
+This project provides a BlueZ GATT peripheral for an ESP32 BLE client. It advertises automatically at startup, accepts RFID IDs, and returns object information JSON from a local mock database.
 
 ## Project Structure
 
@@ -34,14 +34,14 @@ ble_server/
 
 ```bash
 sudo apt update
-sudo apt install -y bluetooth bluez python3 python3-venv
+sudo apt install -y bluetooth bluez python3 python3-venv python3-dbus python3-gi
 sudo systemctl enable --now bluetooth
 ```
 
 2. Create and activate a virtual environment:
 
 ```bash
-python3 -m venv .venv
+python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 ```
 
@@ -50,6 +50,10 @@ source .venv/bin/activate
 ```bash
 pip install -r ble_server/requirements.txt
 ```
+
+The BLE server depends on the system `dbus` and `gi` packages installed by `apt`.
+
+If you already created the virtual environment without `--system-site-packages`, recreate it after installing the Ubuntu packages above. The `dbus` module is provided by the system Python packages, not by `pip`.
 
 ## BLE Permissions Notes
 
@@ -60,28 +64,41 @@ pip install -r ble_server/requirements.txt
 sudo -E python3 -m ble_server.main
 ```
 
+## Troubleshooting
+
+If you see `ModuleNotFoundError: No module named 'dbus'`, install the missing system packages and recreate the venv:
+
+```bash
+sudo apt update
+sudo apt install -y bluetooth bluez python3-dbus python3-gi
+rm -rf .venv
+python3 -m venv --system-site-packages .venv
+source .venv/bin/activate
+pip install -r ble_server/requirements.txt
+```
+
 ## Run the Server
 
-Interactive mock mode (recommended for local testing without ESP32):
+Auto-advertising BLE peripheral mode:
 
 ```bash
 python3 -m ble_server.main
 ```
 
-Non-interactive mode (keeps server process alive):
+Interactive mock mode for manual RFID input:
 
 ```bash
-python3 -m ble_server.main --no-mock-cli
+python3 -m ble_server.main --mock-cli
 ```
 
 ## Expected BLE Workflow
 
-1. Server initializes mock database.
-2. Server initializes BLE service and characteristic UUIDs.
-3. BLE advertising placeholder starts (ready for BlueZ GATT extension).
-4. ESP32 client writes RFID ID to RFID query characteristic.
+1. Server initializes the mock database.
+2. Server registers a BlueZ GATT service with the fixed UUIDs.
+3. Server advertises automatically on startup.
+4. ESP32 scans, connects, and writes the RFID ID to the query characteristic.
 5. Server looks up `database/objects.json`.
-6. Server writes JSON to object response characteristic.
+6. Server updates the response characteristic with JSON and notifies subscribed clients.
 
 ## Example Messages
 
@@ -95,9 +112,9 @@ Outgoing JSON:
 
 ```json
 {
-  "objectID": "A12",
-  "objectName": "Precision Bearings",
-  "status": "Available",
-  "location": "Shelf 3"
+  // "objectID": "A12",
+  "objectName": "Precision Bearings BT",
+  // "status": "Available",
+  "location": "Shelf 3BT"
 }
 ```

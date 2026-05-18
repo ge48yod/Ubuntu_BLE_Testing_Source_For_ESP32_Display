@@ -11,9 +11,9 @@ from ble_server.utils.logger import get_logger
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Mock BLE warehouse backend for ESP32 clients")
     parser.add_argument(
-        "--no-mock-cli",
+        "--mock-cli",
         action="store_true",
-        help="Run without interactive RFID input mode",
+        help="Run an interactive RFID input mode for manual testing",
     )
     return parser.parse_args()
 
@@ -29,14 +29,14 @@ async def run_server(no_mock_cli: bool) -> None:
 
     logger.info("BLE server running and waiting for RFID requests...")
     if no_mock_cli:
-        await server.wait_forever()
-    else:
         await server.run_mock_cli()
+    else:
+        await server.wait_forever()
 
 
 def main() -> None:
     args = parse_args()
-    asyncio.run(run_server(args.no_mock_cli))
+    asyncio.run(run_server(args.mock_cli))
 
 
 if __name__ == "__main__":

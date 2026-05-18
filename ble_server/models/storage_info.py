@@ -5,9 +5,9 @@ from dataclasses import asdict, dataclass
 
 @dataclass
 class StorageInfo:
-    objectID: str
+    # objectID: str
     objectName: str
-    status: str
+    # status: str
     location: str
 
     def to_dict(self) -> dict:
