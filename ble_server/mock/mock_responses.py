@@ -9,9 +9,7 @@ def object_found_response(storage_info: StorageInfo) -> dict:
 
 def object_not_found_response(rfid_id: str) -> dict:
     return {
-        # "objectID": "UNKNOWN",
         "objectName": "Not Found",
-        # "status": "Missing",
         "location": "N/A",
         "rfidID": rfid_id,
     }

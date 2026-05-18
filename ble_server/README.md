@@ -1,6 +1,6 @@
 # BLE Warehouse Server (Ubuntu)
 
-This project provides a BlueZ GATT peripheral for an ESP32 BLE client. It advertises automatically at startup, accepts RFID IDs, and returns object information JSON from a local mock database.
+This project provides a BlueZ GATT peripheral for an ESP32 BLE client. It advertises automatically at startup, accepts RFID IDs, and returns object information JSON from a local database.
 
 ## Project Structure
 
@@ -11,8 +11,6 @@ ble_server/
 ├── README.md
 ├── ble/
 │   ├── server.py
-│   ├── service.py
-│   ├── characteristics.py
 │   └── uuids.py
 ├── database/
 │   ├── object_store.py
@@ -93,7 +91,7 @@ python3 -m ble_server.main --mock-cli
 
 ## Expected BLE Workflow
 
-1. Server initializes the mock database.
+1. Server initializes the object database.
 2. Server registers a BlueZ GATT service with the fixed UUIDs.
 3. Server advertises automatically on startup.
 4. ESP32 scans, connects, and writes the RFID ID to the query characteristic.

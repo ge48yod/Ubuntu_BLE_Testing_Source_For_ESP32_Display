@@ -11,7 +11,7 @@ class ObjectLookupTests(unittest.TestCase):
     def test_lookup_existing_rfid(self) -> None:
         info = self.store.lookup("93A7C412")
         self.assertIsNotNone(info)
-        # self.assertEqual(info.to_dict()["objectID"], "A12")
+        assert info is not None
         self.assertEqual(info.to_dict()["location"], "Shelf 3BT")
 
     def test_lookup_unknown_rfid(self) -> None:
@@ -20,8 +20,7 @@ class ObjectLookupTests(unittest.TestCase):
 
     def test_not_found_response_contains_rfid(self) -> None:
         payload = object_not_found_response("DOES_NOT_EXIST")
-        # self.assertEqual(payload["rfidID"], "DOES_NOT_EXIST")
-        # self.assertEqual(payload["status"], "Missing")
+        self.assertEqual(payload["rfidID"], "DOES_NOT_EXIST")
 
 
 if __name__ == "__main__":
