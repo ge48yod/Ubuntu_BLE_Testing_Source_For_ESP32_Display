@@ -1,4 +1,4 @@
-"""BlueZ GATT peripheral for the warehouse mock backend."""
+"""BlueZ GATT peripheral for the warehouse mock server."""
 
 from __future__ import annotations
 
@@ -44,8 +44,8 @@ class FailedException(dbus.exceptions.DBusException):
     _dbus_error_name = "org.bluez.Error.Failed"
 
 
-class Application(dbus.service.Object):
-    """org.bluez.GattApplication1 implementation."""
+class BlueZGATTApplication(dbus.service.Object):
+    """BlueZ object that groups the GATT service and its characteristics."""
 
     def __init__(self, bus: dbus.Bus) -> None:
         self.path = "/"
@@ -55,7 +55,7 @@ class Application(dbus.service.Object):
     def get_path(self) -> dbus.ObjectPath:
         return dbus.ObjectPath(self.path)
 
-    def add_service(self, service: "Service") -> None:
+    def add_service(self, service: "BlueZGATTService") -> None:
         self.services.append(service)
 
     @dbus.service.method(DBUS_OM_IFACE, out_signature="a{oa{sa{sv}}}")
@@ -68,8 +68,8 @@ class Application(dbus.service.Object):
         return response
 
 
-class Service(dbus.service.Object):
-    """org.bluez.GattService1 implementation."""
+class BlueZGATTService(dbus.service.Object):
+    """BlueZ GATT service exposed to Bluetooth clients."""
 
     PATH_BASE = "/org/bluez/warehouse/service"
 
@@ -93,7 +93,7 @@ class Service(dbus.service.Object):
     def get_path(self) -> dbus.ObjectPath:
         return dbus.ObjectPath(self.path)
 
-    def add_characteristic(self, characteristic: "Characteristic") -> None:
+    def add_characteristic(self, characteristic: "BlueZGATTCharacteristic") -> None:
         self.characteristics.append(characteristic)
 
     def get_characteristics(self):
@@ -109,10 +109,10 @@ class Service(dbus.service.Object):
         return self.get_properties()[GATT_SERVICE_IFACE]
 
 
-class Characteristic(dbus.service.Object):
-    """org.bluez.GattCharacteristic1 implementation."""
+class BlueZGATTCharacteristic(dbus.service.Object):
+    """BlueZ GATT characteristic, the read/write value attached to a service."""
 
-    def __init__(self, bus: dbus.Bus, index: int, uuid: str, flags: list[str], service: Service) -> None:
+    def __init__(self, bus: dbus.Bus, index: int, uuid: str, flags: list[str], service: BlueZGATTService) -> None:
         self.path = f"{service.path}/char{index}"
         self.bus = bus
         self.uuid = uuid
@@ -140,19 +140,19 @@ class Characteristic(dbus.service.Object):
         return self.get_properties()[GATT_CHRC_IFACE]
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="ay")
-    def ReadValue(self, options):
+    def ReadValue(self, options) -> list[dbus.Byte]:
         raise NotSupportedException()
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="aya{sv}")
-    def WriteValue(self, value, options):
+    def WriteValue(self, value, options) -> None:
         raise NotSupportedException()
 
     @dbus.service.method(GATT_CHRC_IFACE)
-    def StartNotify(self):
+    def StartNotify(self) -> None:
         raise NotSupportedException()
 
     @dbus.service.method(GATT_CHRC_IFACE)
-    def StopNotify(self):
+    def StopNotify(self) -> None:
         raise NotSupportedException()
 
     @dbus.service.signal(DBUS_PROP_IFACE, signature="sa{sv}as")
@@ -160,8 +160,12 @@ class Characteristic(dbus.service.Object):
         pass
 
 
-class Advertisement(dbus.service.Object):
-    """org.bluez.LEAdvertisement1 implementation."""
+class BlueZAdvertisement(dbus.service.Object):
+    """BLE advertisement.
+
+    An advertisement is the small broadcast payload a peripheral sends out so
+    scanners can discover it before a connection is made.
+    """
 
     PATH_BASE = "/org/bluez/warehouse/advertisement"
 
@@ -205,24 +209,24 @@ class Advertisement(dbus.service.Object):
         return
 
 
-class WarehouseResponseCharacteristic(Characteristic):
-    """Characteristic that exposes the JSON lookup result."""
+class WarehouseResponseCharacteristic(BlueZGATTCharacteristic):
+    """Read/notify characteristic that exposes the JSON lookup result."""
 
-    def __init__(self, bus: dbus.Bus, index: int, service: Service) -> None:
+    def __init__(self, bus: dbus.Bus, index: int, service: BlueZGATTService) -> None:
         super().__init__(bus, index, OBJECT_RESPONSE_CHARACTERISTIC_UUID, ["read", "notify"], service)
         self.value = b""
         self.notifying = False
 
-    def ReadValue(self, options):
+    def ReadValue(self, options) -> list[dbus.Byte]:
         return [dbus.Byte(byte) for byte in self.value]
 
-    def StartNotify(self):
+    def StartNotify(self) -> None:
         if self.notifying:
             return
         self.notifying = True
         self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": [dbus.Byte(byte) for byte in self.value]}, [])
 
-    def StopNotify(self):
+    def StopNotify(self) -> None:
         self.notifying = False
 
     def set_payload(self, payload: dict) -> None:
@@ -231,21 +235,21 @@ class WarehouseResponseCharacteristic(Characteristic):
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": [dbus.Byte(byte) for byte in self.value]}, [])
 
 
-class WarehouseRFIDQueryCharacteristic(Characteristic):
+class WarehouseRFIDQueryCharacteristic(BlueZGATTCharacteristic):
     """Write-only characteristic used by the ESP32 client to submit RFID values."""
 
-    def __init__(self, bus: dbus.Bus, index: int, service: Service, peripheral: "BlueZWarehousePeripheral") -> None:
+    def __init__(self, bus: dbus.Bus, index: int, service: BlueZGATTService, peripheral: "BlueZWarehousePeripheral") -> None:
         super().__init__(bus, index, RFID_QUERY_CHARACTERISTIC_UUID, ["write"], service)
         self.peripheral = peripheral
 
-    def WriteValue(self, value, options):
+    def WriteValue(self, value, options) -> None:
         rfid_id = bytes(value).decode("utf-8").strip()
         if not rfid_id:
             raise FailedException("Empty RFID payload")
         self.peripheral.handle_rfid(rfid_id)
 
 
-class WarehouseService(Service):
+class WarehouseService(BlueZGATTService):
     def __init__(self, bus: dbus.Bus, peripheral: "BlueZWarehousePeripheral") -> None:
         super().__init__(bus, 0, SERVICE_UUID, True)
         self.response_characteristic = WarehouseResponseCharacteristic(bus, 0, self)
@@ -254,7 +258,7 @@ class WarehouseService(Service):
         self.add_characteristic(self.query_characteristic)
 
 
-class WarehouseAdvertisement(Advertisement):
+class WarehouseAdvertisement(BlueZAdvertisement):
     def __init__(self, bus: dbus.Bus) -> None:
         super().__init__(bus, 0, "peripheral")
         self.add_service_uuid(SERVICE_UUID)
@@ -267,11 +271,11 @@ class BlueZWarehousePeripheral:
     def __init__(self, store: ObjectStore, logger=None) -> None:
         self.store = store
         self.logger = logger or get_logger()
-        self.bus = None
-        self.mainloop = None
-        self.application = None
-        self.advertisement = None
-        self.service = None
+        self.bus: dbus.Bus | None = None
+        self.mainloop: GLib.MainLoop | None = None
+        self.application: BlueZGATTApplication | None = None
+        self.advertisement: WarehouseAdvertisement | None = None
+        self.service: WarehouseService | None = None
 
     def start(self) -> None:
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
@@ -287,16 +291,18 @@ class BlueZWarehousePeripheral:
         gatt_manager = dbus.Interface(adapter_object, GATT_MANAGER_IFACE)
         advertising_manager = dbus.Interface(adapter_object, LE_ADVERTISING_MANAGER_IFACE)
 
-        self.application = Application(self.bus)
+        self.application = BlueZGATTApplication(self.bus)
         self.service = WarehouseService(self.bus, self)
         self.application.add_service(self.service)
         self.advertisement = WarehouseAdvertisement(self.bus)
 
         self.mainloop = GLib.MainLoop()
+        mainloop = self.mainloop
+        assert mainloop is not None
 
         from threading import Thread
 
-        Thread(target=self.mainloop.run, daemon=True).start()
+        Thread(target=mainloop.run, daemon=True).start()
 
         self._register_gatt_application(gatt_manager)
         self._register_advertisement(advertising_manager)
@@ -326,20 +332,24 @@ class BlueZWarehousePeripheral:
         return response
 
     def _register_gatt_application(self, gatt_manager) -> None:
+        application = self.application
+        assert application is not None
         self._register_with_manager(
             "GATT application",
-            self.application.get_path(),
+            application.get_path(),
             lambda reply_handler, error_handler: gatt_manager.RegisterApplication(
-                self.application.get_path(), {}, reply_handler=reply_handler, error_handler=error_handler
+                application.get_path(), {}, reply_handler=reply_handler, error_handler=error_handler
             ),
         )
 
     def _register_advertisement(self, advertising_manager) -> None:
+        advertisement = self.advertisement
+        assert advertisement is not None
         self._register_with_manager(
             "advertisement",
-            self.advertisement.get_path(),
+            advertisement.get_path(),
             lambda reply_handler, error_handler: advertising_manager.RegisterAdvertisement(
-                self.advertisement.get_path(), {}, reply_handler=reply_handler, error_handler=error_handler
+                advertisement.get_path(), {}, reply_handler=reply_handler, error_handler=error_handler
             ),
         )
 

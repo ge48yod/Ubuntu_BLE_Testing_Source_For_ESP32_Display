@@ -12,19 +12,19 @@ class BLEWarehouseServer:
     def __init__(self, store: ObjectStore) -> None:
         self.store = store
         self.logger = get_logger()
-        self.backend = None
+        self.peripheral = None
 
     async def start(self) -> None:
         from .bluez_peripheral import BlueZWarehousePeripheral
 
         self.logger.info("Initializing BlueZ BLE peripheral...")
-        self.backend = BlueZWarehousePeripheral(self.store, logger=self.logger)
-        self.backend.start()
+        self.peripheral = BlueZWarehousePeripheral(self.store, logger=self.logger)
+        self.peripheral.start()
 
     def handle_rfid(self, rfid_id: str) -> dict:
-        if self.backend is None:
+        if self.peripheral is None:
             raise RuntimeError("BlueZ peripheral has not been started yet")
-        return self.backend.handle_rfid(rfid_id)
+        return self.peripheral.handle_rfid(rfid_id)
 
     async def run_mock_cli(self) -> None:
         self.logger.info("Mock mode enabled. Type an RFID value, or 'quit' to stop.")

@@ -9,7 +9,7 @@ from ble_server.utils.logger import get_logger
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Mock BLE warehouse backend for ESP32 clients")
+    parser = argparse.ArgumentParser(description="Mock BLE warehouse server for ESP32 clients")
     parser.add_argument(
         "--mock-cli",
         action="store_true",
@@ -18,7 +18,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-async def run_server(no_mock_cli: bool) -> None:
+async def run_server(mock_cli_enabled: bool) -> None:
     logger = get_logger()
     logger.info("Initializing mock object database...")
     store = default_store()
@@ -28,7 +28,7 @@ async def run_server(no_mock_cli: bool) -> None:
     await server.start()
 
     logger.info("BLE server running and waiting for RFID requests...")
-    if no_mock_cli:
+    if mock_cli_enabled:
         await server.run_mock_cli()
     else:
         await server.wait_forever()
