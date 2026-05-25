@@ -1,6 +1,6 @@
 # BLE Warehouse Server (Ubuntu)
 
-This project provides a BlueZ GATT peripheral for an ESP32 BLE client. It advertises automatically at startup, accepts RFID IDs, and returns object information JSON from a local database.
+This project provides a BlueZ GATT peripheral for ESP32 BLE clients. It advertises automatically at startup, accepts RFID IDs, and returns object information JSON from a local database on a per-device basis.
 
 ## Project Structure
 
@@ -83,24 +83,39 @@ python3 -m ble_server.main --mock-cli
 3. Server advertises automatically on startup.
 4. ESP32 scans, connects, and writes the RFID ID to the query characteristic.
 5. Server looks up `database/objects.json`.
-6. Server updates the response characteristic with JSON and notifies subscribed clients.
+6. Server updates the response characteristic with JSON for the device that sent the RFID.
+7. Multiple clients can write different RFID values at the same time without overwriting each other's response payload.
 
 ## Example Messages
 
-Incoming RFID:
+Incoming RFID examples:
 
 ```text
 93A7C412
+93A7C413
+93A7C414
 ```
 
-Outgoing JSON:
+Outgoing JSON examples:
 
 ```json
 {
-  // "objectID": "A12",
+  "rfidID": "93A7C412",
   "objectName": "Precision Bearings BT",
   // "status": "Available",
   "location": "Shelf 3BT"
+}
+
+{
+  "rfidID": "93A7C413",
+  "objectName": "Hydraulic Seals BT",
+  "location": "Shelf 4BT"
+}
+
+{
+  "rfidID": "93A7C414",
+  "objectName": "Torque Sensor BT",
+  "location": "Shelf 5BT"
 }
 ```
 
@@ -115,8 +130,8 @@ This section is meant for developers who want to understand the code base quickl
 3. `ble_server/ble/server.py` creates the higher-level server wrapper.
 4. `ble_server/ble/bluez_peripheral.py` registers the BlueZ GATT objects and starts advertising.
 5. The ESP32 writes an RFID value to the query characteristic.
-6. The server looks up that RFID in the database and writes JSON into the response characteristic.
-7. BlueZ notifies any subscribed client when the response changes.
+6. The server looks up that RFID in the database and stores JSON for the requesting Bluetooth device.
+7. Each connected device can read back its own response without clobbering other clients' payloads.
 
 ### Bluetooth terms used in the code
 

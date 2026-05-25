@@ -215,10 +215,12 @@ class WarehouseResponseCharacteristic(BlueZGATTCharacteristic):
     def __init__(self, bus: dbus.Bus, index: int, service: BlueZGATTService) -> None:
         super().__init__(bus, index, OBJECT_RESPONSE_CHARACTERISTIC_UUID, ["read", "notify"], service)
         self.value = b""
+        self._device_payloads: dict[str, bytes] = {}
         self.notifying = False
 
     def ReadValue(self, options) -> list[dbus.Byte]:
-        return [dbus.Byte(byte) for byte in self.value]
+        payload = self._payload_for_options(options)
+        return [dbus.Byte(byte) for byte in payload]
 
     def StartNotify(self) -> None:
         if self.notifying:
@@ -229,10 +231,28 @@ class WarehouseResponseCharacteristic(BlueZGATTCharacteristic):
     def StopNotify(self) -> None:
         self.notifying = False
 
-    def set_payload(self, payload: dict) -> None:
-        self.value = to_json_string(payload).encode("utf-8")
+    def set_payload(self, payload: dict, device_key: str | None = None) -> None:
+        encoded_payload = to_json_string(payload).encode("utf-8")
+        self.value = encoded_payload
+        key = device_key or "default"
+        self._device_payloads[key] = encoded_payload
         if self.notifying:
-            self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": [dbus.Byte(byte) for byte in self.value]}, [])
+            self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": [dbus.Byte(byte) for byte in encoded_payload]}, [])
+
+    def _payload_for_options(self, options) -> bytes:
+        device_key = self._device_key(options)
+        if device_key in self._device_payloads:
+            return self._device_payloads[device_key]
+        return self.value
+
+    @staticmethod
+    def _device_key(options) -> str:
+        if not options:
+            return "default"
+        device = options.get("device")
+        if device is None:
+            return "default"
+        return str(device)
 
 
 class WarehouseRFIDQueryCharacteristic(BlueZGATTCharacteristic):
@@ -246,7 +266,7 @@ class WarehouseRFIDQueryCharacteristic(BlueZGATTCharacteristic):
         rfid_id = bytes(value).decode("utf-8").strip()
         if not rfid_id:
             raise FailedException("Empty RFID payload")
-        self.peripheral.handle_rfid(rfid_id)
+        self.peripheral.handle_rfid(rfid_id, options)
 
 
 class WarehouseService(BlueZGATTService):
@@ -316,18 +336,20 @@ class BlueZWarehousePeripheral:
         if self.mainloop is not None and self.mainloop.is_running():
             self.mainloop.quit()
 
-    def handle_rfid(self, rfid_id: str) -> dict:
+    def handle_rfid(self, rfid_id: str, options=None) -> dict:
         storage_info = self.store.lookup(rfid_id)
         if storage_info is None:
             response = object_not_found_response(rfid_id)
         else:
             response = object_found_response(storage_info)
+            response["rfidID"] = rfid_id
 
-        self.logger.info("Incoming RFID: %s", rfid_id)
+        device_key = WarehouseResponseCharacteristic._device_key(options)
+        self.logger.info("Incoming RFID from %s: %s", device_key, rfid_id)
         self.logger.info("Outgoing JSON: %s", to_json_string(response))
 
         if self.service is not None:
-            self.service.response_characteristic.set_payload(response)
+            self.service.response_characteristic.set_payload(response, device_key)
 
         return response
 

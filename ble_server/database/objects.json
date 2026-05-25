@@ -3,15 +3,13 @@
     "objectName": "Precision Bearings BT",
     "location": "Shelf 3BT"
   },
-  "11BB22CC": {
+  "93A7C413": {
     "objectName": "Hydraulic Seals BT",
-    "location": "Shelf 7BT"
+    "location": "Shelf 4BT"
   },
-  "Extra": {
-    "objectID1": "A12",
-    "status1": "Available",
-    "objectID2": "B07",
-    "status2": "Reserved"
+  "93A7C414": {
+    "objectName": "Torque Sensor BT",
+    "location": "Shelf 5BT"
   }
 }
 
